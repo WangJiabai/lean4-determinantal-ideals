@@ -4,7 +4,7 @@ Released under Apache 2.0 license as described in the file LICENSE.
 Authors: Jiabai Wang
 -/
 import Mathlib.Algebra.MvPolynomial.Eval
-import MyProject.Determinantalideals.basic
+import MyProject.Determinantalideals.Basic
 
 /-!
 # Evaluation of generic minors

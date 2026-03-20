@@ -46,14 +46,13 @@ noncomputable def minor {m n t : ℕ} (I : MinorIndex m n t) :
 
 /-- The set of all `t × t` minors of the generic `m × n` matrix. -/
 def minorSet {m n : ℕ} (t : ℕ) : Set (MvPolynomial (Fin m × Fin n) k) :=
-  Set.range (minor (m := m) (n := n) (k := k) (t := t))
+  Set.range (minor k (t := t))
 
 @[simp] lemma mem_minorSet_iff {m n t : ℕ} {f : MvPolynomial (Fin m × Fin n) k} :
     f ∈ minorSet k t ↔ ∃ I : MinorIndex m n t, minor k I = f := Iff.rfl
 
 lemma minor_mem_minorSet {m n t : ℕ} (I : MinorIndex m n t) :
-    minor k I ∈ minorSet k t :=
-  ⟨I, rfl⟩
+    minor k I ∈ minorSet k t := ⟨I, rfl⟩
 
 end CommRing
 

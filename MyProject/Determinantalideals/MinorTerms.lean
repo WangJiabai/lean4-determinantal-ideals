@@ -1,35 +1,42 @@
-import Mathlib
-import MyProject.Determinantalideals.basic
+/-
+Copyright (c) 2026 Jiabai Wang. All rights reserved.
+Released under Apache 2.0 license as described in the file LICENSE.
+Authors: Jiabai Wang
+-/
+import Mathlib.GroupTheory.Perm.Sign
+import Mathlib.LinearAlgebra.Matrix.Determinant.Basic
+import MyProject.Determinantalideals.Basic
 
-open scoped BigOperators MonomialOrder
+/-!
+# Minor terms for determinantal ideals
 
-namespace Determinantal
+This file develops the exponent-vector and monomial-term language attached to a
+`t × t` minor of the generic matrix.
 
-/-!# Minor terms for determinantal ideals
-
-This file contains the exponent-vector and monomial-term language attached to a
-`t × t` minor of the generic matrix:
+It defines:
 
 * `diagExp` / `diagMonomial`: the diagonal term;
 * `permExp` / `permCoeff` / `permTerm`: the signed permutation terms in the
   determinant expansion;
 * pointwise formulas for these exponent vectors;
-* support/cardinality/total-degree lemmas;
+* support, cardinality, and total-degree lemmas;
 * the determinant expansion of a minor as a sum of permutation terms.
 -/
+
+open scoped BigOperators
+
+namespace Determinantal
 
 section Exponents
 
 variable {m n t : ℕ}
 
-/-- Exponent vector of the diagonal monomial of a `t × t` minor. -/
+/-- The exponent vector of the diagonal monomial of a `t × t` minor. -/
 noncomputable def diagExp (I : MinorIndex m n t) : (Fin m × Fin n) →₀ ℕ :=
   ∑ k : Fin t, Finsupp.single (I.row k, I.col k) 1
 
-/--
-Exponent vector of the permutation term corresponding to `σ`
-in the determinant expansion of a `t × t` minor.
--/
+/-- The exponent vector of the permutation term corresponding to `σ` in the determinant
+expansion of a `t × t` minor. -/
 noncomputable def permExp
     (I : MinorIndex m n t) (σ : Equiv.Perm (Fin t)) : (Fin m × Fin n) →₀ ℕ :=
   ∑ k : Fin t, Finsupp.single (I.row k, I.col (σ k)) 1
@@ -50,11 +57,13 @@ variable {k : Type*} [CommSemiring k]
 variable {m n t : ℕ}
 
 /-- The diagonal monomial attached to a minor. -/
-noncomputable def diagMonomial (I : MinorIndex m n t) : R m n k :=
+noncomputable def diagMonomial (I : MinorIndex m n t) :
+    MvPolynomial (Fin m × Fin n) k :=
   MvPolynomial.monomial (diagExp I) 1
 
 @[simp] theorem diagMonomial_def (I : MinorIndex m n t) :
-    diagMonomial (k := k) I = MvPolynomial.monomial (diagExp I) 1 := rfl
+    diagMonomial I = MvPolynomial.monomial (diagExp I) 1 :=
+  rfl
 
 end MonomialTerms
 
@@ -63,16 +72,14 @@ section SignedPermutationTerms
 variable {k : Type*} [CommRing k]
 variable {m n t : ℕ}
 
-/-- The coefficient `sign σ` viewed in the coefficient ring. -/
+/-- The coefficient `sign σ`, viewed in the coefficient ring. -/
 noncomputable def permCoeff (σ : Equiv.Perm (Fin t)) : k :=
   (((Equiv.Perm.sign σ : ℤˣ) : ℤ) : k)
 
-/--
-The actual signed permutation term occurring in the determinant expansion
-of a minor.
--/
+/-- The signed permutation term occurring in the determinant expansion of a minor. -/
 noncomputable def permTerm
-    (I : MinorIndex m n t) (σ : Equiv.Perm (Fin t)) : R m n k :=
+    (I : MinorIndex m n t) (σ : Equiv.Perm (Fin t)) :
+    MvPolynomial (Fin m × Fin n) k :=
   MvPolynomial.monomial (permExp I σ) (permCoeff (k := k) σ)
 
 @[simp] theorem permCoeff_one :
@@ -86,18 +93,10 @@ noncomputable def permTerm
 @[simp] lemma coeff_permTerm
     (I : MinorIndex m n t) (σ : Equiv.Perm (Fin t))
     (c : (Fin m × Fin n) →₀ ℕ) :
-    MvPolynomial.coeff c (permTerm (k := k) I σ)
-      = if c = permExp I σ then permCoeff (k := k) σ else 0 := by
-  simp only [permTerm, MvPolynomial.coeff_monomial]
-  split
-  next h =>
-    subst h
-    simp_all only [↓reduceIte]
-  next h =>
-    simp_all only [right_eq_ite_iff]
-    intro a
-    subst a
-    simp_all only [not_true_eq_false]
+    MvPolynomial.coeff c (permTerm I σ) =
+      if c = permExp I σ then permCoeff (k := k) σ else 0 := by
+  simp [permTerm,eq_comm]
+
 
 end SignedPermutationTerms
 
@@ -105,10 +104,10 @@ section PointwiseExponentLemmas
 
 variable {m n t : ℕ}
 
+/-- Pointwise formula for `diagExp`. -/
 lemma diagExp_apply
     (I : MinorIndex m n t) (a : Fin m) (b : Fin n) :
-    diagExp I (a, b)
-      = if ∃ i : Fin t, I.row i = a ∧ I.col i = b then 1 else 0 := by
+    diagExp I (a, b) = if ∃ i : Fin t, I.row i = a ∧ I.col i = b then 1 else 0 := by
   classical
   by_cases h : ∃ i : Fin t, I.row i = a ∧ I.col i = b
   · rcases h with ⟨i, hrow, hcol⟩
@@ -141,11 +140,12 @@ lemma diagExp_apply
   rw [diagExp_apply]
   exact if_pos ⟨i, rfl, rfl⟩
 
+/-- Pointwise formula for `permExp`. -/
 lemma permExp_apply
     (I : MinorIndex m n t) (σ : Equiv.Perm (Fin t))
     (a : Fin m) (b : Fin n) :
-    permExp I σ (a, b)
-      = if ∃ i : Fin t, I.row i = a ∧ I.col (σ i) = b then 1 else 0 := by
+    permExp I σ (a, b) =
+      if ∃ i : Fin t, I.row i = a ∧ I.col (σ i) = b then 1 else 0 := by
   classical
   by_cases h : ∃ i : Fin t, I.row i = a ∧ I.col (σ i) = b
   · rcases h with ⟨i, hrow, hcol⟩
@@ -177,14 +177,12 @@ lemma permExp_apply
   rw [permExp_apply]
   exact if_pos ⟨i, rfl, rfl⟩
 
-/--
-At a diagonal variable corresponding to a moved index, the permutation exponent vanishes.
--/
+/-- At a diagonal variable corresponding to a moved index, the permutation exponent vanishes. -/
 lemma permExp_apply_diag_eq_zero
     (I : MinorIndex m n t) (σ : Equiv.Perm (Fin t))
     {i : Fin t}
     (hmove : σ i ≠ i)
-    (hfix : ∀ j : Fin t, j < i → σ j = j) :
+    (_hfix : ∀ j : Fin t, j < i → σ j = j) :
     permExp I σ (I.row i, I.col i) = 0 := by
   rw [permExp_apply]
   refine if_neg ?_
@@ -193,6 +191,7 @@ lemma permExp_apply_diag_eq_zero
   subst hj
   exact hmove (I.col.injective hjcol)
 
+/-- At a diagonal variable corresponding to a fixed index, the permutation exponent is `1`. -/
 lemma permExp_apply_diag_of_fix
     (I : MinorIndex m n t) (σ : Equiv.Perm (Fin t))
     {i : Fin t} (hfixi : σ i = i) :
@@ -207,20 +206,21 @@ section PermutationCombinatorics
 
 variable {t : ℕ}
 
+/-- Every nontrivial permutation moves a least index. -/
 lemma exists_min_moved
     {σ : Equiv.Perm (Fin t)} (hσ : σ ≠ 1) :
     ∃ i : Fin t, σ i ≠ i ∧ ∀ j : Fin t, j < i → σ j = j := by
   classical
   let s : Finset (Fin t) := Finset.univ.filter fun i => σ i ≠ i
   have hs : s.Nonempty := by
-    by_contra hs
+    by_contra hs'
     apply hσ
     ext i
     have hi_not : i ∉ s := by
-      exact forall_not_of_not_exists hs i
+      exact forall_not_of_not_exists hs' i
     simp_all only [ne_eq, Finset.not_nonempty_iff_eq_empty, Finset.filter_eq_empty_iff,
-    Finset.mem_univ, Decidable.not_not, forall_const,  not_true_eq_false,
-    Finset.filter_false, Finset.notMem_empty, not_false_eq_true,Equiv.Perm.coe_one, id_eq, s]
+      Finset.mem_univ, Decidable.not_not, forall_const, not_true_eq_false,
+      Finset.filter_false, Finset.notMem_empty, not_false_eq_true, Equiv.Perm.coe_one, id_eq, s]
   refine ⟨s.min' hs, ?_, ?_⟩
   · exact (Finset.mem_filter.mp (Finset.min'_mem s hs)).2
   · intro j hj
@@ -229,6 +229,7 @@ lemma exists_min_moved
       simp [s, hj']
     exact not_lt_of_ge (Finset.min'_le s j hjmem) hj
 
+/-- The least moved index is mapped to a strictly larger index. -/
 lemma min_moved_lt_image
     {σ : Equiv.Perm (Fin t)} {i : Fin t}
     (hmove : σ i ≠ i)
@@ -247,6 +248,7 @@ section ExponentInjectivity
 
 variable {m n t : ℕ}
 
+/-- The map `σ ↦ permExp I σ` is injective. -/
 theorem permExp_injective
     (I : MinorIndex m n t) :
     Function.Injective (permExp I) := by
@@ -266,7 +268,7 @@ theorem permExp_injective
   have hj : j = i := I.row.injective hjrow
   subst hj
   simp_all only [EmbeddingLike.apply_eq_iff_eq, exists_eq_left,
-   ite_eq_left_iff, zero_ne_one, imp_false, Decidable.not_not]
+    ite_eq_left_iff, zero_ne_one, imp_false, Decidable.not_not]
 
 end ExponentInjectivity
 
@@ -274,24 +276,28 @@ section SupportAndDegree
 
 variable {m n t : ℕ}
 
+/-- The support of `diagExp` is the set of diagonal variables of the minor. -/
 lemma support_diagExp
     (I : MinorIndex m n t) :
-    (diagExp I).support
-      = Finset.image (fun i : Fin t => (I.row i, I.col i)) Finset.univ := by
+    (diagExp I).support =
+      Finset.image (fun i : Fin t => (I.row i, I.col i)) Finset.univ := by
   classical
   ext x
   rcases x with ⟨a, b⟩
   simp [Finsupp.mem_support_iff, diagExp_apply]
 
+/-- The support of `permExp I σ` is the set of variables occurring in the corresponding
+permutation term. -/
 lemma support_permExp
     (I : MinorIndex m n t) (σ : Equiv.Perm (Fin t)) :
-    (permExp I σ).support
-      = Finset.image (fun i : Fin t => (I.row i, I.col (σ i))) Finset.univ := by
+    (permExp I σ).support =
+      Finset.image (fun i : Fin t => (I.row i, I.col (σ i))) Finset.univ := by
   classical
   ext x
   rcases x with ⟨a, b⟩
   simp [Finsupp.mem_support_iff, permExp_apply]
 
+/-- The support of `diagExp` has cardinality `t`. -/
 lemma diagExp_card_support
     (I : MinorIndex m n t) :
     (diagExp I).support.card = t := by
@@ -302,6 +308,7 @@ lemma diagExp_card_support
     exact I.row.injective (by simpa using congrArg Prod.fst hij)
   simpa using Finset.card_image_of_injective (s := Finset.univ) hinj
 
+/-- The support of `permExp I σ` has cardinality `t`. -/
 lemma permExp_card_support
     (I : MinorIndex m n t) (σ : Equiv.Perm (Fin t)) :
     (permExp I σ).support.card = t := by
@@ -310,8 +317,9 @@ lemma permExp_card_support
   have hinj : Function.Injective (fun i : Fin t => (I.row i, I.col (σ i))) := by
     intro i j hij
     exact I.row.injective (by simpa using congrArg Prod.fst hij)
-  simpa using Finset.card_image_of_injective (s := Finset.univ) hinj
+  simpa using Finset.card_image_of_injective Finset.univ hinj
 
+/-- The total degree of the diagonal exponent vector is `t`. -/
 lemma diagExp_totalDegree
     (I : MinorIndex m n t) :
     (diagExp I).sum (fun _ e => e) = t := by
@@ -326,6 +334,7 @@ lemma diagExp_totalDegree
   · intro i _ j _ hij
     exact hinj hij
 
+/-- The total degree of any permutation exponent vector is `t`. -/
 lemma permExp_totalDegree
     (I : MinorIndex m n t) (σ : Equiv.Perm (Fin t)) :
     (permExp I σ).sum (fun _ e => e) = t := by
@@ -347,52 +356,48 @@ section DeterminantExpansion
 variable {k : Type*} [CommRing k]
 variable {m n t : ℕ}
 
-/--
-Determinant expansion of a minor in terms of signed permutation monomials.
-
-This is the natural bridge between `minor` and the exponent-vector language
-used in diagonal term orders.
--/
+/-- Determinant expansion of a minor as a sum of signed permutation monomials. -/
 theorem minor_eq_sum_permTerm
     (I : MinorIndex m n t) :
-    minor (m := m) (n := n) (k := k) I
-      = ∑ σ : Equiv.Perm (Fin t), permTerm (k := k) I σ := by
+    minor k I =
+      ∑ σ : Equiv.Perm (Fin t), permTerm I σ := by
   classical
-  let M : Matrix (Fin t) (Fin t) (R m n k) :=
-    Matrix.submatrix (genericMatrix (m := m) (n := n) k) I.row I.col
+  let M : Matrix (Fin t) (Fin t) (MvPolynomial (Fin m × Fin n) k) :=
+    Matrix.submatrix (genericMatrix m n k) I.row I.col
   calc
-    minor (m := m) (n := n) (k := k) I = M.det := by
+    minor k I = M.det := by
       rfl
     _ = M.transpose.det := by
       simp [Matrix.det_transpose]
     _ = ∑ σ : Equiv.Perm (Fin t),
-          ((((Equiv.Perm.sign σ : ℤˣ) : ℤ) : R m n k)) *
+          ((((Equiv.Perm.sign σ : ℤˣ) : ℤ) : MvPolynomial (Fin m × Fin n) k)) *
             ∏ i : Fin t, M.transpose (σ i) i := by
       rw [Matrix.det_apply']
-    _ = ∑ σ : Equiv.Perm (Fin t), permTerm (k := k) I σ := by
+    _ = ∑ σ : Equiv.Perm (Fin t), permTerm I σ := by
       refine Finset.sum_congr rfl ?_
       intro σ hσ
-      change ((((Equiv.Perm.sign σ : ℤˣ) : ℤ) : R m n k)) *
-          ∏ i : Fin t, (MvPolynomial.X (I.row i, I.col (σ i)) : R m n k)
-        = permTerm (k := k) I σ
+      change ((((Equiv.Perm.sign σ : ℤˣ) : ℤ) : MvPolynomial (Fin m × Fin n) k)) *
+          ∏ i : Fin t,
+            (MvPolynomial.X (I.row i, I.col (σ i)) : MvPolynomial (Fin m × Fin n) k) =
+          permTerm I σ
       rw [permTerm]
-      change MvPolynomial.C (permCoeff (k := k) σ) *
+      change MvPolynomial.C (permCoeff σ) *
           ∏ i : Fin t,
             (MvPolynomial.monomial
-              (Finsupp.single (I.row i, I.col (σ i)) 1) 1 : R m n k)
-        =
-        MvPolynomial.monomial (permExp I σ) (permCoeff (k := k) σ)
+              (Finsupp.single (I.row i, I.col (σ i)) 1) 1 :
+                MvPolynomial (Fin m × Fin n) k) =
+        MvPolynomial.monomial (permExp I σ) (permCoeff σ)
       symm
       simpa [permExp, permCoeff, MvPolynomial.X] using
         (MvPolynomial.monomial_sum_index
           (s := Finset.univ)
           (f := fun i : Fin t => Finsupp.single (I.row i, I.col (σ i)) 1)
-          (a := permCoeff (k := k) σ))
+          (a := permCoeff σ))
 
+/-- The coefficient of `minor I` at the exponent vector `permExp I σ` is `permCoeff σ`. -/
 lemma coeff_minor_permExp
     (I : MinorIndex m n t) (σ : Equiv.Perm (Fin t)) :
-    MvPolynomial.coeff (permExp I σ) (minor (m := m) (n := n) (k := k) I)
-      = permCoeff (k := k) σ := by
+    MvPolynomial.coeff (permExp I σ) (minor k I) = permCoeff σ := by
   classical
   rw [minor_eq_sum_permTerm]
   rw [MvPolynomial.coeff_sum]
