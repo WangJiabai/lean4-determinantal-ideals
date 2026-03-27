@@ -36,13 +36,13 @@ theorem minorSet_isGroebnerBasis_iff_pairwise_sPolynomial_zero
     (hdiag : IsDiagonalTermOrder ord)
     (t : ℕ) :
     ord.IsGroebnerBasis
-      (minorSet (m := m) (n := n) (k := k) t)
+      (minorSet (k := k) t)
       (detIdeal m n t k)
       ↔
     ∀ I J : MinorIndex m n t,
       ord.IsRemainder
         (ord.sPolynomial (genericMinor I) (genericMinor J))
-        (minorSet (m := m) (n := n) (k := k) t) 0 := by
+        (minorSet (k := k) t) 0 := by
   rw [detIdeal]
   refine
     (MonomialOrder.IsGroebnerBasis.isGroebnerBasis_iff_isRemainder_sPolynomial_zero₀
@@ -718,7 +718,7 @@ end fourth
 section fifth
 
 variable {m n t : ℕ}
-variable {k : Type*} [CommRing k]
+variable {k : Type*} [CommRing k] [Nontrivial k]
 
 theorem exists_sPolynomial_minor_certificate
     (ord : MonomialOrder (Fin m × Fin n))
