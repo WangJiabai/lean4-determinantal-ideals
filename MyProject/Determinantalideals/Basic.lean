@@ -27,7 +27,7 @@ noncomputable def genericMatrix (m n : ℕ) (k : Type*) [CommSemiring k] :
 
 section CommRing
 
-variable (k : Type*) [CommRing k]
+variable {k : Type*} [CommRing k]
 
 /-- Index data for a `t × t` minor of an `m × n` matrix.
 
@@ -39,20 +39,21 @@ structure MinorIndex (m n t : ℕ) where
   /-- The chosen column indices, in increasing order. -/
   col : Fin t ↪o Fin n
 
-/-- The `t × t` minor of the generic `m × n` matrix corresponding to `I`. -/
-noncomputable def minor {m n t : ℕ} (I : MinorIndex m n t) :
+/-- `genericMinor I` is the `t × t` minor of the generic `m × n` matrix selected by
+the row/column order embeddings stored in `I : MinorIndex m n t`. -/
+noncomputable def genericMinor {m n t : ℕ} (I : MinorIndex m n t) :
     MvPolynomial (Fin m × Fin n) k :=
   Matrix.det <| Matrix.submatrix (genericMatrix m n k) I.row I.col
 
 /-- The set of all `t × t` minors of the generic `m × n` matrix. -/
 def minorSet {m n : ℕ} (t : ℕ) : Set (MvPolynomial (Fin m × Fin n) k) :=
-  Set.range (minor k (t := t))
+  Set.range (genericMinor (t := t))
 
 @[simp] lemma mem_minorSet_iff {m n t : ℕ} {f : MvPolynomial (Fin m × Fin n) k} :
-    f ∈ minorSet k t ↔ ∃ I : MinorIndex m n t, minor k I = f := Iff.rfl
+    f ∈ minorSet t ↔ ∃ I : MinorIndex m n t, genericMinor I = f := Iff.rfl
 
 lemma minor_mem_minorSet {m n t : ℕ} (I : MinorIndex m n t) :
-    minor k I ∈ minorSet k t := ⟨I, rfl⟩
+    genericMinor I ∈ minorSet (k := k) t := ⟨I, rfl⟩
 
 end CommRing
 

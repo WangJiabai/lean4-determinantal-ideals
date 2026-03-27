@@ -33,10 +33,10 @@ lemma genericMatrix_map (f : k →+* S) :
 /-- Mapping coefficients along `f` sends a generic minor over `k` to the corresponding
 generic minor over `S`. -/
 lemma map_minor (f : k →+* S) (I : MinorIndex m n t) :
-    (MvPolynomial.map f) (minor k I) =
-      minor S I := by
+    (MvPolynomial.map f) (genericMinor I) =
+      genericMinor I := by
   classical
-  unfold minor
+  unfold genericMinor
   have hdet :
       (MvPolynomial.map f) (Matrix.det (Matrix.submatrix (genericMatrix m n k) I.row I.col)) =
         Matrix.det ((Matrix.submatrix (genericMatrix m n k) I.row I.col).map
@@ -47,34 +47,34 @@ lemma map_minor (f : k →+* S) (I : MinorIndex m n t) :
 
 /-- Determinantal ideals are compatible with coefficient-wise base change. -/
 lemma detIdeal_map (f : k →+* S) :
-    Ideal.map (MvPolynomial.map f) (detIdeal m n k t) =
-      detIdeal m n S t := by
+    Ideal.map (MvPolynomial.map f) (detIdeal m n t k) =
+      detIdeal m n t S:= by
   classical
   let φ : MvPolynomial (Fin m × Fin n) k →+* MvPolynomial (Fin m × Fin n) S :=
     MvPolynomial.map f
   apply le_antisymm
   · refine (Ideal.map_le_iff_le_comap).2 ?_
-    change Ideal.span (minorSet k t) ≤
-      Ideal.comap φ (Ideal.span (minorSet S t))
+    change Ideal.span (minorSet t) ≤
+      Ideal.comap φ (Ideal.span (minorSet t))
     refine (Ideal.span_le).2 ?_
     intro x hx
     rcases hx with ⟨I, rfl⟩
     have hx' :
-        φ (minor k I) ∈
-          Ideal.span (minorSet S t) := by
+        φ (genericMinor I) ∈
+          Ideal.span (minorSet t) := by
       exact Ideal.subset_span ⟨I, (map_minor f I).symm⟩
     simpa [φ, map_minor f I] using hx'
-  · change Ideal.span (minorSet S t) ≤
-      Ideal.map (MvPolynomial.map f) (Ideal.span (minorSet k t))
+  · change Ideal.span (minorSet t) ≤
+      Ideal.map (MvPolynomial.map f) (Ideal.span (minorSet t))
     refine (Ideal.span_le).2 ?_
     intro x hx
     rcases hx with ⟨I, rfl⟩
     have hmem :
-        minor k I ∈
-          detIdeal m n k t := minor_mem_detIdeal k I
+        genericMinor I ∈
+          detIdeal m n t k := minor_mem_detIdeal k I
     have hx' :
-        (MvPolynomial.map f) (minor k I) ∈
-          Ideal.map (MvPolynomial.map f) (detIdeal m n k t) := by
+        (MvPolynomial.map f) (genericMinor I) ∈
+          Ideal.map (MvPolynomial.map f) (detIdeal m n t k) := by
       exact Ideal.mem_map_of_mem (MvPolynomial.map f) hmem
     simpa [map_minor f I] using hx'
 

@@ -359,13 +359,13 @@ variable {m n t : ℕ}
 /-- Determinant expansion of a minor as a sum of signed permutation monomials. -/
 theorem minor_eq_sum_permTerm
     (I : MinorIndex m n t) :
-    minor k I =
+    genericMinor (k := k) I =
       ∑ σ : Equiv.Perm (Fin t), permTerm I σ := by
   classical
   let M : Matrix (Fin t) (Fin t) (MvPolynomial (Fin m × Fin n) k) :=
     Matrix.submatrix (genericMatrix m n k) I.row I.col
   calc
-    minor k I = M.det := by
+    genericMinor I = M.det := by
       rfl
     _ = M.transpose.det := by
       simp [Matrix.det_transpose]
@@ -397,7 +397,7 @@ theorem minor_eq_sum_permTerm
 /-- The coefficient of `minor I` at the exponent vector `permExp I σ` is `permCoeff σ`. -/
 lemma coeff_minor_permExp
     (I : MinorIndex m n t) (σ : Equiv.Perm (Fin t)) :
-    MvPolynomial.coeff (permExp I σ) (minor k I) = permCoeff σ := by
+    MvPolynomial.coeff (permExp I σ) (genericMinor (k := k) I) = permCoeff σ := by
   classical
   rw [minor_eq_sum_permTerm]
   rw [MvPolynomial.coeff_sum]

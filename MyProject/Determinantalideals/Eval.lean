@@ -43,7 +43,7 @@ noncomputable def evalMatrix (A : Matrix (Fin m) (Fin n) S) :
 
 /-- Evaluating a generic minor gives the corresponding minor of the concrete matrix. -/
 lemma evalMatrix_minor (A : Matrix (Fin m) (Fin n) S) (I : MinorIndex m n t) :
-    evalMatrix k A (minor k I) = matrixMinor A I := by
+    evalMatrix k A (genericMinor I) = matrixMinor A I := by
   classical
   let M : Matrix (Fin t) (Fin t) (MvPolynomial (Fin m × Fin n) k) :=
     Matrix.submatrix (genericMatrix m n k) I.row I.col
@@ -51,7 +51,7 @@ lemma evalMatrix_minor (A : Matrix (Fin m) (Fin n) S) (I : MinorIndex m n t) :
   have hM : M.map (evalMatrix k A) = Matrix.submatrix A I.row I.col := by
     ext i j
     simp [M, evalMatrix, genericMatrix]
-  simpa [minor, matrixMinor, M, hM] using hdet.symm
+  simpa [genericMinor, matrixMinor, M, hM] using hdet.symm
 
 end Eval
 

@@ -39,16 +39,16 @@ variable {k : Type*} [CommRing k]
 
 /-- A convenience description of `minorSet` as the range of `minor`. -/
 @[simp] lemma minorSet_eq_range {m n : ℕ} (t : ℕ) :
-    minorSet k t =
-      Set.range (minor (m := m) (n := n) (k := k) (t := t)) :=
+    minorSet t =
+      Set.range (genericMinor (m := m) (n := n) (k := k) (t := t)) :=
   rfl
 
 /-- The set of all `t × t` minors of the generic `m × n` matrix is finite. -/
 lemma minorSet_finite {m n : ℕ} (t : ℕ) :
-    (minorSet k (m := m) (n := n) t).Finite := by
+    (minorSet (k := k) (m := m) (n := n) t).Finite := by
   classical
   simpa [minorSet]
-    using (Set.finite_range (minor (m := m) (n := n) (k := k) (t := t)))
+    using (Set.finite_range (genericMinor (t := t)))
 
 end FiniteTools
 

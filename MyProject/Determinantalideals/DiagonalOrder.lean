@@ -284,13 +284,13 @@ theorem degree_minor_eq_diagExp
     (ord : MonomialOrder (Fin m × Fin n))
     (hdiag : IsDiagonalTermOrder ord)
     (I : MinorIndex m n t) :
-    ord.degree (minor k I) = diagExp I := by
+    ord.degree (genericMinor (k := k) I) = diagExp I := by
   classical
   apply ord.toSyn.injective
   apply le_antisymm
   · rw [ord.degree_le_iff]
     intro c hc
-    have hcoeff : MvPolynomial.coeff c (minor k I) ≠ 0 := by
+    have hcoeff : MvPolynomial.coeff c (genericMinor (k := k) I) ≠ 0 := by
       simpa [MvPolynomial.mem_support_iff] using hc
     rw [minor_eq_sum_permTerm I, MvPolynomial.coeff_sum] at hcoeff
     have hex :
@@ -314,7 +314,7 @@ theorem degree_minor_eq_diagExp
       simp [hc_eq, permExp_one]
     · exact le_of_lt <| by
         simpa [hc_eq] using hdiag I σ hσ1
-  · have hsupp : diagExp I ∈ (minor k I).support := by
+  · have hsupp : diagExp I ∈ (genericMinor (k := k) I).support := by
       rw [MvPolynomial.mem_support_iff,
         minor_eq_sum_permTerm I, MvPolynomial.coeff_sum]
       rw [Finset.sum_eq_single (1 : Equiv.Perm (Fin t))]
@@ -331,7 +331,7 @@ theorem leadingCoeff_minor_eq_one
     (ord : MonomialOrder (Fin m × Fin n))
     (hdiag : IsDiagonalTermOrder ord)
     (I : MinorIndex m n t) :
-    ord.leadingCoeff (minor k I) = 1 := by
+    ord.leadingCoeff (genericMinor (k := k) I) = 1 := by
   rw [MonomialOrder.leadingCoeff]
   rw [degree_minor_eq_diagExp ord hdiag I]
   rw [minor_eq_sum_permTerm I, MvPolynomial.coeff_sum]
@@ -348,7 +348,7 @@ theorem monic_minor_of_isDiagonal
     (ord : MonomialOrder (Fin m × Fin n))
     (hdiag : IsDiagonalTermOrder ord)
     (I : MinorIndex m n t) :
-    ord.Monic (minor k I) := by
+    ord.Monic (genericMinor (k := k) I) := by
   simp [MonomialOrder.Monic, leadingCoeff_minor_eq_one ord hdiag I]
 
 /-- Under a diagonal term order, the leading term of a minor is the diagonal monomial. -/
@@ -356,18 +356,18 @@ theorem leadingTerm_minor_eq_diagMonomial
     (ord : MonomialOrder (Fin m × Fin n))
     (hdiag : IsDiagonalTermOrder ord)
     (I : MinorIndex m n t) :
-    ord.leadingTerm (minor k I) = diagMonomial I := by
+    ord.leadingTerm (genericMinor (k := k) I) = diagMonomial I := by
   simp [MonomialOrder.leadingTerm, diagMonomial, degree_minor_eq_diagExp ord hdiag I,
     leadingCoeff_minor_eq_one ord hdiag I]
 
 /-- Specialization of `degree_minor_eq_diagExp` to the row-major lexicographic order. -/
 theorem degree_minor_rowMajorLex (I : MinorIndex m n t) :
-    (rowMajorLex m n).degree (minor k I) = diagExp I :=
+    (rowMajorLex m n).degree (genericMinor (k := k) I) = diagExp I :=
   degree_minor_eq_diagExp (rowMajorLex m n) (rowMajorLex_isDiagonal m n) I
 
 /-- Specialization of `leadingTerm_minor_eq_diagMonomial` to the row-major lexicographic order. -/
 theorem leadingTerm_minor_rowMajorLex (I : MinorIndex m n t) :
-    (rowMajorLex m n).leadingTerm (minor k I) =
+    (rowMajorLex m n).leadingTerm (genericMinor (k := k) I) =
       diagMonomial I :=
   leadingTerm_minor_eq_diagMonomial (rowMajorLex m n) (rowMajorLex_isDiagonal m n) I
 

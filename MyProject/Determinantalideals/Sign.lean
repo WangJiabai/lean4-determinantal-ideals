@@ -80,7 +80,7 @@ noncomputable def minorMatrix (I : MinorIndex m n t) :
   rfl
 
 @[simp] lemma minor_eq_det_minorMatrix (I : MinorIndex m n t) :
-    minor k I = (minorMatrix I).det := by
+    genericMinor (k := k) I = (minorMatrix I).det := by
   rfl
 
 end MinorBridge
