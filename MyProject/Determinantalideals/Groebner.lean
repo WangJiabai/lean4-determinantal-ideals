@@ -15,7 +15,7 @@ variable {k : Type*} [CommRing k] [Nontrivial k]
 
 lemma minorSet_leadingCoeff_isUnit_or_zero
     (ord : MonomialOrder (Fin m × Fin n))
-    (hdiag : IsDiagonalTermOrder (m := m) (n := n) ord)
+    (hdiag : IsDiagonalTermOrder ord)
     (t : ℕ) :
     ∀ g ∈ minorSet (m := m) (n := n) (k := k) t,
       IsUnit (ord.leadingCoeff g) ∨ g = 0 := by
@@ -123,7 +123,7 @@ variable (k : Type*) [CommRing k]
 
 theorem sPolynomial_minor_eq [Nontrivial k]
     (ord : MonomialOrder (Fin m × Fin n))
-    (hdiag : IsDiagonalTermOrder (m := m) (n := n) ord)
+    (hdiag : IsDiagonalTermOrder ord)
     (I J : MinorIndex m n t) :
     ord.sPolynomial (genericMinor (k := k) I) (genericMinor J) =
       MvPolynomial.monomial (diagExp J - diagExp I) 1 * genericMinor I
@@ -484,7 +484,7 @@ theorem toWithBotSyn_withBotDegree_add_eq_max_of_ne
 
 theorem degree_bound_left_tail_coeff_of_diagDisjoint
     (ord : MonomialOrder (Fin m × Fin n))
-    (hdiag : IsDiagonalTermOrder (m := m) (n := n) ord)
+    (hdiag : IsDiagonalTermOrder ord)
     {I J : MinorIndex m n t}
     (hdisj : diagDisjoint I J)
     (hJ : diagMonomial J - genericMinor (k := k) J ≠ 0) :
@@ -553,8 +553,7 @@ theorem degree_bound_left_tail_coeff_of_diagDisjoint
         ord.toWithBotSyn
           (ord.withBotDegree
             (ord.sPolynomial (genericMinor (k := k) I) (genericMinor J))) := by
-          symm
-          exact hsdeg
+          exact hsdeg.symm
 
 theorem degree_bound_right_tail_coeff_of_diagDisjoint
     (ord : MonomialOrder (Fin m × Fin n))
@@ -639,7 +638,7 @@ theorem degree_bound_right_tail_coeff_of_diagDisjoint
 
 theorem exists_diagDisjoint_sPolynomial_certificate
     (ord : MonomialOrder (Fin m × Fin n))
-    (hdiag : IsDiagonalTermOrder (m := m) (n := n) ord)
+    (hdiag : IsDiagonalTermOrder ord)
     {I J : MinorIndex m n t}
     (hdisj : diagDisjoint I J) :
     ∃ a : MinorIndex m n t →₀ MvPolynomial (Fin m × Fin n) k,
@@ -696,8 +695,7 @@ theorem exists_diagDisjoint_sPolynomial_certificate
           have hval : a K = genericMinor (k := k) I - diagMonomial I := by
             simp [a, hJI]
           simpa [hval] using
-            degree_bound_right_tail_coeff_of_diagDisjoint
-              (k := k) (ord := ord) hdiag hdisj hcoeffI
+            degree_bound_right_tail_coeff_of_diagDisjoint ord hdiag hdisj hcoeffI
         · exfalso
           have : a K = 0 := by
             simp [a, hKI, hKJ]
@@ -705,24 +703,599 @@ theorem exists_diagDisjoint_sPolynomial_certificate
 
 theorem isRemainder_sPolynomial_minor_zero_of_diagDisjoint
     (ord : MonomialOrder (Fin m × Fin n))
-    (hdiag : IsDiagonalTermOrder (m := m) (n := n) ord)
+    (hdiag : IsDiagonalTermOrder ord)
     {I J : MinorIndex m n t}
     (hdisj : diagDisjoint I J) :
     ord.IsRemainder
-      (ord.sPolynomial (genericMinor (k := k) I) (genericMinor J)) (minorSet t) 0 := by
+      (ord.sPolynomial (genericMinor I) (genericMinor J)) (minorSet (k := k) t) 0 := by
   rw [isRemainder_zero_minorSet_iff]
   exact exists_diagDisjoint_sPolynomial_certificate ord hdiag hdisj
 
 end fourth
+
+section fifthPrep
+
+variable {m n t : ℕ}
+variable {k : Type*} [CommRing k] [Nontrivial k]
+
+/-- The `S`-polynomial of two generic minors. -/
+noncomputable abbrev sPolyMinor
+    (ord : MonomialOrder (Fin m × Fin n))
+    (I J : MinorIndex m n t) :
+    MvPolynomial (Fin m × Fin n) k :=
+  ord.sPolynomial (genericMinor I) (genericMinor J)
+
+/-- Complexity of a pair of minors: the number of common diagonal variables. -/
+noncomputable def complexity (I J : MinorIndex m n t) : ℕ :=
+  ((diagExp I).support ∩ (diagExp J).support).card
+
+lemma complexity_eq_zero_iff_diagDisjoint
+    (I J : MinorIndex m n t) :
+    complexity I J = 0 ↔ diagDisjoint I J := by
+  classical
+  unfold complexity diagDisjoint
+  rw [Finset.card_eq_zero]
+  exact Finset.disjoint_iff_inter_eq_empty.symm
+
+lemma complexity_pos_iff_not_diagDisjoint
+    (I J : MinorIndex m n t) :
+    0 < complexity I J ↔ ¬ diagDisjoint I J := by
+  classical
+  rw [← complexity_eq_zero_iff_diagDisjoint (I := I) (J := J)]
+  exact pos_iff_ne_zero
+
+lemma exists_common_diag_of_complexity_pos
+    {I J : MinorIndex m n t}
+    (hpos : 0 < complexity I J) :
+    ∃ x : Fin m × Fin n,
+      x ∈ (diagExp I).support ∧ x ∈ (diagExp J).support := by
+  classical
+  have hne :
+      ((diagExp I).support ∩ (diagExp J).support).Nonempty := by
+    exact Finset.card_pos.mp hpos
+  rcases hne with ⟨x, hx⟩
+  exact ⟨x, (Finset.mem_inter.mp hx).1, (Finset.mem_inter.mp hx).2⟩
+
+/-- A coefficient family certifying that `p` is a linear combination of minors
+with the required degree bounds. -/
+def IsMinorCertificate
+    (ord : MonomialOrder (Fin m × Fin n))
+    (p : MvPolynomial (Fin m × Fin n) k)
+    (a : MinorIndex m n t →₀ MvPolynomial (Fin m × Fin n) k) : Prop :=
+  p = Finsupp.linearCombination _ (fun K ↦ genericMinor (k := k) K) a ∧
+  ∀ K ∈ a.support,
+    ord.toWithBotSyn (ord.withBotDegree (genericMinor (k := k) K)) +
+      ord.toWithBotSyn (ord.withBotDegree (a K))
+        ≤ ord.toWithBotSyn (ord.withBotDegree p)
+
+omit [Nontrivial k] in
+lemma isMinorCertificate_iff
+    (ord : MonomialOrder (Fin m × Fin n))
+    (p : MvPolynomial (Fin m × Fin n) k)
+    (a : MinorIndex m n t →₀ MvPolynomial (Fin m × Fin n) k) :
+    IsMinorCertificate (k := k) ord p a ↔
+      p = Finsupp.linearCombination _ (fun K ↦ genericMinor (k := k) K) a ∧
+      ∀ K ∈ a.support,
+        ord.toWithBotSyn (ord.withBotDegree (genericMinor (k := k) K)) +
+          ord.toWithBotSyn (ord.withBotDegree (a K))
+            ≤ ord.toWithBotSyn (ord.withBotDegree p) := by
+  rfl
+
+lemma exists_minorCertificate_of_diagDisjoint
+    (ord : MonomialOrder (Fin m × Fin n))
+    (hdiag : IsDiagonalTermOrder ord)
+    {I J : MinorIndex m n t}
+    (hdisj : diagDisjoint I J) :
+    ∃ a : MinorIndex m n t →₀ MvPolynomial (Fin m × Fin n) k,
+      IsMinorCertificate (k := k) ord (sPolyMinor (k := k) ord I J) a := by
+  simpa [sPolyMinor, IsMinorCertificate] using
+    exists_diagDisjoint_sPolynomial_certificate
+      (k := k) (ord := ord) hdiag hdisj
+
+/-- Multiply every coefficient in a finitely supported family by the same polynomial on the left. -/
+noncomputable def coeffMul
+    (q : MvPolynomial (Fin m × Fin n) k)
+    (a : MinorIndex m n t →₀ MvPolynomial (Fin m × Fin n) k) :
+    MinorIndex m n t →₀ MvPolynomial (Fin m × Fin n) k :=
+  a.mapRange (fun f => q * f) (by simp)
+
+omit [Nontrivial k] in
+@[simp] lemma coeffMul_apply
+    (q : MvPolynomial (Fin m × Fin n) k)
+    (a : MinorIndex m n t →₀ MvPolynomial (Fin m × Fin n) k)
+    (K : MinorIndex m n t) :
+    coeffMul q a K = q * a K := by
+  simp [coeffMul]
+
+omit [Nontrivial k] in
+lemma coeffMul_support_subset
+    (q : MvPolynomial (Fin m × Fin n) k)
+    (a : MinorIndex m n t →₀ MvPolynomial (Fin m × Fin n) k) :
+    (coeffMul q a).support ⊆ a.support := by
+  intro K hK
+  by_contra hnot
+  have : a K = 0 := Finsupp.notMem_support_iff.mp hnot
+  have hzero : coeffMul q a K = 0 := by
+    simp [coeffMul_apply, this]
+  simp_all only [Finsupp.mem_support_iff, ne_eq, not_true_eq_false]
+
+omit [Nontrivial k] in
+lemma linearCombination_coeffMul
+    (q : MvPolynomial (Fin m × Fin n) k)
+    (a : MinorIndex m n t →₀ MvPolynomial (Fin m × Fin n) k) :
+    Finsupp.linearCombination _ (fun K ↦ genericMinor K)
+        (coeffMul q a)
+      =
+    q *
+      Finsupp.linearCombination _ (fun K ↦ genericMinor K) a := by
+  have hcoeff : coeffMul q a = q • a := by
+    ext K
+    simp [coeffMul]
+  rw [hcoeff]
+  simp [smul_eq_mul]
+
+omit [Nontrivial k] in
+lemma linearCombination_add
+    (a b : MinorIndex m n t →₀ MvPolynomial (Fin m × Fin n) k) :
+    Finsupp.linearCombination _ (fun K ↦ genericMinor (k := k) K) (a + b)
+      =
+    Finsupp.linearCombination _ (fun K ↦ genericMinor (k := k) K) a
+      +
+    Finsupp.linearCombination _ (fun K ↦ genericMinor (k := k) K) b := by
+  simp only [map_add]
+
+/-- One recursive reduction step for the `S`-polynomial of two minors. -/
+structure SPolynomialStepData
+    (ord : MonomialOrder (Fin m × Fin n))
+    (I J : MinorIndex m n t) where
+  nextI : MinorIndex m n t
+  nextJ : MinorIndex m n t
+  direct : MinorIndex m n t →₀ MvPolynomial (Fin m × Fin n) k
+  multiplier : MvPolynomial (Fin m × Fin n) k
+  complexity_lt : complexity nextI nextJ < complexity I J
+  eq_decomposition :
+      sPolyMinor ord I J
+        =
+      Finsupp.linearCombination _ (fun K ↦ genericMinor K) direct
+        +
+      multiplier * sPolyMinor ord nextI nextJ
+  direct_bound :
+      ∀ K ∈ direct.support,
+        ord.toWithBotSyn (ord.withBotDegree (genericMinor (k := k) K)) +
+          ord.toWithBotSyn (ord.withBotDegree (direct K))
+            ≤ ord.toWithBotSyn (ord.withBotDegree (sPolyMinor (k := k) ord I J))
+  multiplier_bound :
+      ord.toWithBotSyn (ord.withBotDegree multiplier) +
+        ord.toWithBotSyn (ord.withBotDegree (sPolyMinor (k := k) ord nextI nextJ))
+          ≤ ord.toWithBotSyn (ord.withBotDegree (sPolyMinor (k := k) ord I J))
+
+omit [Nontrivial k] in
+/-- Combine a recursive certificate with one reduction step. -/
+theorem SPolynomialStepData.to_minorCertificate
+    (ord : MonomialOrder (Fin m × Fin n))
+    {I J : MinorIndex m n t}
+    (step : SPolynomialStepData (k := k) ord I J)
+    (hrec :
+      ∃ a : MinorIndex m n t →₀ MvPolynomial (Fin m × Fin n) k,
+        IsMinorCertificate (k := k) ord
+          (sPolyMinor (k := k) ord step.nextI step.nextJ) a) :
+    ∃ a : MinorIndex m n t →₀ MvPolynomial (Fin m × Fin n) k,
+      IsMinorCertificate (k := k) ord (sPolyMinor (k := k) ord I J) a := by
+  classical
+  rcases hrec with ⟨aRec, haRec_eq, haRec_deg⟩
+  let a : MinorIndex m n t →₀ MvPolynomial (Fin m × Fin n) k :=
+    step.direct + coeffMul (k := k) step.multiplier aRec
+  refine ⟨a, ?_, ?_⟩
+  · -- linear-combination identity
+    calc
+      sPolyMinor (k := k) ord I J
+          =
+        Finsupp.linearCombination _ (fun K ↦ genericMinor (k := k) K) step.direct
+          +
+        step.multiplier * sPolyMinor (k := k) ord step.nextI step.nextJ := by
+            simpa using step.eq_decomposition
+      _ =
+        Finsupp.linearCombination _ (fun K ↦ genericMinor (k := k) K) step.direct
+          +
+        step.multiplier *
+          Finsupp.linearCombination _ (fun K ↦ genericMinor (k := k) K) aRec := by
+            simp [haRec_eq]
+      _ =
+        Finsupp.linearCombination _ (fun K ↦ genericMinor (k := k) K) step.direct
+          +
+        Finsupp.linearCombination _ (fun K ↦ genericMinor (k := k) K)
+          (coeffMul (k := k) step.multiplier aRec) := by
+            rw [linearCombination_coeffMul]
+      _ =
+        Finsupp.linearCombination _ (fun K ↦ genericMinor (k := k) K)
+          (step.direct + coeffMul (k := k) step.multiplier aRec) := by
+            rw [linearCombination_add]
+      _ = Finsupp.linearCombination _ (fun K ↦ genericMinor (k := k) K) a := by
+            rfl
+  · -- degree bounds for every coefficient in the combined support
+      intro K hK
+      let b : MinorIndex m n t →₀ MvPolynomial (Fin m × Fin n) k :=
+        coeffMul (k := k) step.multiplier aRec
+      have hb_bound :
+          ∀ K ∈ b.support,
+            ord.toWithBotSyn (ord.withBotDegree (genericMinor (k := k) K)) +
+              ord.toWithBotSyn (ord.withBotDegree (b K))
+                ≤ ord.toWithBotSyn (ord.withBotDegree (sPolyMinor (k := k) ord I J)) := by
+        intro K hKb
+        have hK_rec : K ∈ aRec.support := by
+          exact coeffMul_support_subset (k := k) step.multiplier aRec hKb
+        have hrecK :
+            ord.toWithBotSyn (ord.withBotDegree (genericMinor (k := k) K)) +
+              ord.toWithBotSyn (ord.withBotDegree (aRec K))
+                ≤
+              ord.toWithBotSyn
+                (ord.withBotDegree
+                  (sPolyMinor (k := k) ord step.nextI step.nextJ)) := by
+          exact haRec_deg K hK_rec
+        have hmul :
+          ord.toWithBotSyn (ord.withBotDegree (step.multiplier * aRec K))
+            ≤
+          ord.toWithBotSyn (ord.withBotDegree step.multiplier) +
+            ord.toWithBotSyn (ord.withBotDegree (aRec K)) := by
+          exact ord.withBotDegree_mul_le' step.multiplier (aRec K)
+        have hmul' :
+            ord.toWithBotSyn (ord.withBotDegree (step.multiplier * aRec K)) +
+                ord.toWithBotSyn (ord.withBotDegree (genericMinor (k := k) K))
+              ≤
+            (ord.toWithBotSyn (ord.withBotDegree step.multiplier) +
+                ord.toWithBotSyn (ord.withBotDegree (aRec K))) +
+              ord.toWithBotSyn (ord.withBotDegree (genericMinor (k := k) K)) := by
+          exact add_le_add_left hmul _
+        calc
+          ord.toWithBotSyn (ord.withBotDegree (genericMinor (k := k) K)) +
+              ord.toWithBotSyn (ord.withBotDegree (b K))
+              =
+          ord.toWithBotSyn (ord.withBotDegree (genericMinor (k := k) K)) +
+              ord.toWithBotSyn (ord.withBotDegree (step.multiplier * aRec K)) := by
+                simp [b, coeffMul_apply]
+          _ ≤
+          ord.toWithBotSyn (ord.withBotDegree (genericMinor (k := k) K)) +
+              (ord.toWithBotSyn (ord.withBotDegree step.multiplier) +
+                ord.toWithBotSyn (ord.withBotDegree (aRec K))) := by
+                simpa [add_assoc, add_left_comm, add_comm] using hmul'
+          _ =
+          (ord.toWithBotSyn (ord.withBotDegree (genericMinor (k := k) K)) +
+              ord.toWithBotSyn (ord.withBotDegree (aRec K))) +
+            ord.toWithBotSyn (ord.withBotDegree step.multiplier) := by
+              rw [add_assoc, add_comm
+                    (ord.toWithBotSyn (ord.withBotDegree step.multiplier))
+                    (ord.toWithBotSyn (ord.withBotDegree (aRec K))), ← add_assoc]
+          _ ≤
+          ord.toWithBotSyn
+              (ord.withBotDegree
+                (sPolyMinor (k := k) ord step.nextI step.nextJ)) +
+            ord.toWithBotSyn (ord.withBotDegree step.multiplier) :=
+              add_le_add_left (haRec_deg K hK_rec)
+                (ord.toWithBotSyn (ord.withBotDegree step.multiplier))
+          _ =
+          ord.toWithBotSyn (ord.withBotDegree step.multiplier) +
+            ord.toWithBotSyn
+              (ord.withBotDegree
+                (sPolyMinor (k := k) ord step.nextI step.nextJ)) :=
+                  AddCommMagma.add_comm
+                    (ord.toWithBotSyn (ord.withBotDegree (sPolyMinor ord step.nextI step.nextJ)))
+                    (ord.toWithBotSyn (ord.withBotDegree step.multiplier))
+          _ ≤
+          ord.toWithBotSyn
+            (ord.withBotDegree (sPolyMinor (k := k) ord I J)) := by
+              simpa [sPolyMinor] using step.multiplier_bound
+      by_cases hK_direct : K ∈ step.direct.support
+      · by_cases hK_b : K ∈ b.support
+        · -- overlap case: `K` appears in both parts, so use degree bound for sums
+          have hdirect := step.direct_bound K hK_direct
+          have hb := hb_bound K hK_b
+          have hsum :
+              ord.toWithBotSyn (ord.withBotDegree (a K))
+                ≤
+              ord.toWithBotSyn (ord.withBotDegree (step.direct K)) ⊔
+                ord.toWithBotSyn (ord.withBotDegree (b K)) := by
+            simpa [a, b] using
+              (ord.withBotDegree_add_le (f := step.direct K) (g := b K))
+          calc
+            ord.toWithBotSyn (ord.withBotDegree (genericMinor (k := k) K)) +
+                ord.toWithBotSyn (ord.withBotDegree (a K))
+                ≤
+            ord.toWithBotSyn (ord.withBotDegree (genericMinor (k := k) K)) +
+                (ord.toWithBotSyn (ord.withBotDegree (step.direct K)) ⊔
+                  ord.toWithBotSyn (ord.withBotDegree (b K))) :=
+                    add_le_add_right hsum (ord.toWithBotSyn (ord.withBotDegree (genericMinor K)))
+            _ =
+            (ord.toWithBotSyn (ord.withBotDegree (genericMinor (k := k) K)) +
+                ord.toWithBotSyn (ord.withBotDegree (step.direct K))) ⊔
+              (ord.toWithBotSyn (ord.withBotDegree (genericMinor (k := k) K)) +
+                ord.toWithBotSyn (ord.withBotDegree (b K))) :=
+                  add_max (ord.toWithBotSyn (ord.withBotDegree (genericMinor K)))
+                    (ord.toWithBotSyn (ord.withBotDegree (step.direct K)))
+                    (ord.toWithBotSyn (ord.withBotDegree (b K)))
+            _ ≤
+            ord.toWithBotSyn (ord.withBotDegree (sPolyMinor (k := k) ord I J)) := by
+              exact sup_le hdirect hb
+        · -- only the direct part contributes
+          have hKb0 : b K = 0 := Finsupp.notMem_support_iff.mp hK_b
+          have haK : a K = step.direct K := by
+            simp [a, b, hKb0]
+          simpa [haK] using step.direct_bound K hK_direct
+      · -- direct part absent, so everything comes from the recursive part
+        have hKb : K ∈ b.support := by
+          rw [Finsupp.mem_support_iff] at hK ⊢
+          intro hzero
+          apply hK
+          have hdirect0 : step.direct K = 0 := Finsupp.notMem_support_iff.mp hK_direct
+          simp [a, b, hdirect0, hzero]
+        have hdirect0 : step.direct K = 0 := Finsupp.notMem_support_iff.mp hK_direct
+        have haK : a K = b K := by
+          simp [a, b, hdirect0]
+        simpa [haK] using hb_bound K hKb
+
+set_option linter.style.induction false in
+/-- Abstract induction on `complexity`.  Once the concrete step theorem is available,
+this yields the final certificate theorem. -/
+theorem exists_sPolynomial_minor_certificate_by_complexity
+    (ord : MonomialOrder (Fin m × Fin n))
+    (hdiag : IsDiagonalTermOrder ord)
+    (hstep :
+      ∀ I J : MinorIndex m n t,
+        0 < complexity I J →
+          SPolynomialStepData (k := k) ord I J) :
+    ∀ I J : MinorIndex m n t,
+      ∃ a : MinorIndex m n t →₀ MvPolynomial (Fin m × Fin n) k,
+        IsMinorCertificate (k := k) ord (sPolyMinor (k := k) ord I J) a := by
+  classical
+  have hmain :
+      ∀ c : ℕ,
+        ∀ I J : MinorIndex m n t,
+          complexity I J = c →
+            ∃ a : MinorIndex m n t →₀ MvPolynomial (Fin m × Fin n) k,
+              IsMinorCertificate (k := k) ord (sPolyMinor (k := k) ord I J) a := by
+    intro c
+    induction' c using Nat.case_strong_induction_on with c ih
+    · -- zero case
+      intro I J hIJ
+      have hdisj : diagDisjoint I J := by
+        exact (complexity_eq_zero_iff_diagDisjoint (I := I) (J := J)).mp hIJ
+      exact exists_minorCertificate_of_diagDisjoint
+        (k := k) (ord := ord) hdiag hdisj
+    · -- succ case
+      intro I J hIJ
+      have hpos : 0 < complexity I J := by
+        rw [hIJ]
+        exact Nat.succ_pos c
+      let step : SPolynomialStepData (k := k) ord I J := hstep I J hpos
+      have hrec :
+          ∃ a : MinorIndex m n t →₀ MvPolynomial (Fin m × Fin n) k,
+            IsMinorCertificate (k := k) ord
+              (sPolyMinor (k := k) ord step.nextI step.nextJ) a := by
+        apply ih (complexity step.nextI step.nextJ)
+        · exact Nat.lt_succ_iff.mp (by simpa [hIJ] using step.complexity_lt)
+        · exact rfl
+      exact step.to_minorCertificate (k := k) (ord := ord) hrec
+  intro I J
+  exact hmain (complexity I J) I J rfl
+
+
+end fifthPrep
+
+section fifthStepA_CommonDiag
+
+variable {m n t : ℕ}
+variable {k : Type*} [CommRing k] [Nontrivial k]
+
+/-- A concrete witness that two minors share one diagonal variable. -/
+structure CommonDiagData (I J : MinorIndex m n t) where
+  p : Fin t
+  q : Fin t
+  row_eq : I.row p = J.row q
+  col_eq : I.col p = J.col q
+
+/-- Membership in the support of `diagExp` means being one of the chosen diagonal variables. -/
+lemma mem_support_diagExp_iff
+    (I : MinorIndex m n t) (x : Fin m × Fin n) :
+    x ∈ (diagExp I).support ↔ ∃ p : Fin t, x = (I.row p, I.col p) := by
+  constructor
+  · intro hx
+    rw [Finsupp.mem_support_iff] at hx
+    by_contra h
+    push_neg at h
+    have h' : ∀ p : Fin t, (I.row p, I.col p) ≠ x := by
+      intro p
+      exact by simpa [eq_comm] using h p
+    apply hx
+    simp [diagExp, h']
+  · rintro ⟨p, rfl⟩
+    rw [Finsupp.mem_support_iff]
+    simp only [diagExp_apply_diag, ne_eq, one_ne_zero, not_false_eq_true]
+
+/-- Positive complexity gives an actual common diagonal position. -/
+theorem exists_commonDiagData_of_complexity_pos
+    (I J : MinorIndex m n t)
+    (hpos : 0 < complexity I J) :
+    Nonempty (CommonDiagData I J) := by
+  rcases exists_common_diag_of_complexity_pos (I := I) (J := J) hpos with
+    ⟨x, hxI, hxJ⟩
+  rcases (mem_support_diagExp_iff (I := I) x).mp hxI with ⟨p, hp⟩
+  rcases (mem_support_diagExp_iff (I := J) x).mp hxJ with ⟨q, hq⟩
+  refine ⟨?_⟩
+  refine
+    { p := p
+      q := q
+      row_eq := ?_
+      col_eq := ?_ }
+  · simp_all only [Finsupp.mem_support_iff, diagExp_apply_diag, ne_eq, one_ne_zero,
+    not_false_eq_true, Prod.mk.injEq]
+  · simp_all only [Finsupp.mem_support_iff, diagExp_apply_diag, ne_eq, one_ne_zero,
+    not_false_eq_true, Prod.mk.injEq]
+
+
+noncomputable def chooseCommonDiagData
+    (I J : MinorIndex m n t)
+    (hpos : 0 < complexity I J) :
+    CommonDiagData I J :=
+  Classical.choice (exists_commonDiagData_of_complexity_pos I J hpos)
+
+end fifthStepA_CommonDiag
+
+
+
+section fifthStepB_Candidate
+
+variable {m n t : ℕ}
+variable {k : Type*} [CommRing k] [Nontrivial k]
+
+/-- Raw data for one reduction step, before proving all required properties. -/
+structure StepCandidate (I J : MinorIndex m n t) where
+  nextI : MinorIndex m n t
+  nextJ : MinorIndex m n t
+  direct : MinorIndex m n t →₀ MvPolynomial (Fin m × Fin n) k
+  multiplier : MvPolynomial (Fin m × Fin n) k
+
+/--
+Core combinatorial construction of the next pair and the direct part.
+
+This is where the real determinantal surgery lives.
+It should be defined from a chosen common diagonal witness.
+-/
+noncomputable def stepCandidate
+    (ord : MonomialOrder (Fin m × Fin n))
+    (hdiag : IsDiagonalTermOrder ord)
+    (I J : MinorIndex m n t)
+    (hpos : 0 < complexity I J) :
+    StepCandidate (k := k) I J := by
+  let w : CommonDiagData I J := chooseCommonDiagData (I := I) (J := J) hpos
+  /-
+    TODO:
+    Use `w.p`, `w.q`, `w.row_eq`, `w.col_eq`
+    to define:
+      * the next pair `nextI`, `nextJ`
+      * the coefficient family `direct`
+      * the multiplier polynomial
+  -/
+  sorry
+
+end fifthStepB_Candidate
+
+
+section fifthStepC_CandidateProperties
+
+variable {m n t : ℕ}
+variable {k : Type*} [CommRing k] [Nontrivial k]
+
+theorem stepCandidate_complexity_lt
+    (ord : MonomialOrder (Fin m × Fin n))
+    (hdiag : IsDiagonalTermOrder ord)
+    (I J : MinorIndex m n t)
+    (hpos : 0 < complexity I J) :
+    complexity
+        (stepCandidate (k := k) ord hdiag I J hpos).nextI
+        (stepCandidate (k := k) ord hdiag I J hpos).nextJ
+      <
+    complexity I J := by
+  /-
+    Core combinatorial decrease theorem.
+    This should be proved from the explicit formulas chosen in `stepCandidate`.
+  -/
+  sorry
+
+theorem stepCandidate_eq_decomposition
+    (ord : MonomialOrder (Fin m × Fin n))
+    (hdiag : IsDiagonalTermOrder ord)
+    (I J : MinorIndex m n t)
+    (hpos : 0 < complexity I J) :
+    sPolyMinor ord I J
+      =
+    Finsupp.linearCombination _ (fun K ↦ genericMinor K)
+      (stepCandidate (k := k) ord hdiag I J hpos).direct
+      +
+    (stepCandidate (k := k) ord hdiag I J hpos).multiplier
+      *
+    sPolyMinor ord
+      (stepCandidate (k := k) ord hdiag I J hpos).nextI
+      (stepCandidate (k := k) ord hdiag I J hpos).nextJ := by
+  /-
+    Core algebraic identity:
+      original s-polynomial
+      = direct linear combination + multiplier * smaller s-polynomial
+  -/
+  sorry
+
+theorem stepCandidate_direct_bound
+    (ord : MonomialOrder (Fin m × Fin n))
+    (hdiag : IsDiagonalTermOrder ord)
+    (I J : MinorIndex m n t)
+    (hpos : 0 < complexity I J) :
+    ∀ K ∈ (stepCandidate (k := k) ord hdiag I J hpos).direct.support,
+      ord.toWithBotSyn (ord.withBotDegree (genericMinor (k := k) K)) +
+        ord.toWithBotSyn
+          (ord.withBotDegree ((stepCandidate (k := k) ord hdiag I J hpos).direct K))
+          ≤
+        ord.toWithBotSyn (ord.withBotDegree (sPolyMinor (k := k) ord I J)) := by
+  /-
+    Degree control for each term in the direct part.
+  -/
+  sorry
+
+theorem stepCandidate_multiplier_bound
+    (ord : MonomialOrder (Fin m × Fin n))
+    (hdiag : IsDiagonalTermOrder ord)
+    (I J : MinorIndex m n t)
+    (hpos : 0 < complexity I J) :
+    ord.toWithBotSyn
+        (ord.withBotDegree ((stepCandidate (k := k) ord hdiag I J hpos).multiplier))
+      +
+      ord.toWithBotSyn
+        (ord.withBotDegree
+          (sPolyMinor (k := k) ord
+            (stepCandidate (k := k) ord hdiag I J hpos).nextI
+            (stepCandidate (k := k) ord hdiag I J hpos).nextJ))
+      ≤
+    ord.toWithBotSyn (ord.withBotDegree (sPolyMinor (k := k) ord I J)) := by
+  /-
+    Degree control for the recursive term.
+  -/
+  sorry
+
+end fifthStepC_CandidateProperties
+
+
+section fifthStepD_Assemble
+
+variable {m n t : ℕ}
+variable {k : Type*} [CommRing k] [Nontrivial k]
+
+noncomputable def sPolynomial_minor_stepData
+    (ord : MonomialOrder (Fin m × Fin n))
+    (hdiag : IsDiagonalTermOrder ord)
+    (I J : MinorIndex m n t)
+    (hpos : 0 < complexity I J) :
+    SPolynomialStepData (k := k) ord I J := by
+  classical
+  refine
+    { nextI := (stepCandidate ord hdiag I J hpos).nextI
+      nextJ := (stepCandidate ord hdiag I J hpos).nextJ
+      direct := (stepCandidate ord hdiag I J hpos).direct
+      multiplier := (stepCandidate ord hdiag I J hpos).multiplier
+      complexity_lt := stepCandidate_complexity_lt ord hdiag I J hpos
+      eq_decomposition := stepCandidate_eq_decomposition ord hdiag I J hpos
+      direct_bound := stepCandidate_direct_bound ord hdiag I J hpos
+      multiplier_bound := stepCandidate_multiplier_bound ord hdiag I J hpos }
+
+end fifthStepD_Assemble
+
 
 section fifth
 
 variable {m n t : ℕ}
 variable {k : Type*} [CommRing k] [Nontrivial k]
 
+
+
 theorem exists_sPolynomial_minor_certificate
     (ord : MonomialOrder (Fin m × Fin n))
-    (hdiag : IsDiagonalTermOrder (m := m) (n := n) ord)
+    (hdiag : IsDiagonalTermOrder ord)
     (I J : MinorIndex m n t) :
     ∃ a : MinorIndex m n t →₀ MvPolynomial (Fin m × Fin n) k,
       ord.sPolynomial (genericMinor I) (genericMinor (k := k) J) =
@@ -734,17 +1307,20 @@ theorem exists_sPolynomial_minor_certificate
             ≤ ord.toWithBotSyn
                 (ord.withBotDegree
                   (ord.sPolynomial (genericMinor (k := k) I) (genericMinor J))) := by
-  sorry
+  simpa [sPolyMinor, IsMinorCertificate] using
+    exists_sPolynomial_minor_certificate_by_complexity ord hdiag
+      (sPolynomial_minor_stepData ord hdiag)
+      I J
 
 theorem isRemainder_sPolynomial_minor_zero
     (ord : MonomialOrder (Fin m × Fin n))
-    (hdiag : IsDiagonalTermOrder (m := m) (n := n) ord)
+    (hdiag : IsDiagonalTermOrder ord)
     (I J : MinorIndex m n t) :
     ord.IsRemainder
       (ord.sPolynomial (genericMinor (k := k) I) (genericMinor J))
       (minorSet (m := m) (n := n) (k := k) t) 0 := by
   rw [isRemainder_zero_minorSet_iff]
-  exact exists_sPolynomial_minor_certificate ord hdiag I J
+  exact exists_sPolynomial_minor_certificate (k := k) ord hdiag I J
 
 end fifth
 
@@ -765,7 +1341,7 @@ theorem minorSet_isGroebnerBasis_of_isDiagonalTermOrder
     (t : ℕ)
     (hdiag : IsDiagonalTermOrder ord) :
     ord.IsGroebnerBasis
-      (minorSet (m := m) (n := n) (k := k) t)
+      (minorSet (k := k) t)
       (detIdeal m n t k) := by
   rw [minorSet_isGroebnerBasis_iff_pairwise_sPolynomial_zero ord hdiag]
   intro I J
